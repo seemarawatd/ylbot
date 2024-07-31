@@ -66,16 +66,19 @@ def sp_dl(url: str, tempdir: str, bm, **kwargs) -> list:
             "terabox.app",
             "gibibox.com",
             "goaibox.com",
+            "tibibox.com",
+            "freeterabox.com",
+            "teraboxlink.com",
         ]
     ):
         return terabox(url, tempdir, bm, **kwargs)
     else:
         raise ValueError(f"Invalid URL: No specific link function found for {url}")
-    
+
     return []
 
 
-def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, **kwargs) -> list:
+def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, ARIA2=None, **kwargs) -> list:
     payment = Payment()
     chat_id = bm.chat.id
     if filename:
@@ -89,6 +92,19 @@ def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, **kwargs) -> lis
         "quiet": True,
         "format": None,
     }
+    if ARIA2:
+        ydl_opts["external_downloader"] = "aria2c"
+        ydl_opts["external_downloader_args"] = [
+            "--min-split-size=1M",
+            "--max-connection-per-server=1",
+            "--max-concurrent-downloads=2",
+            "--connect-timeout=120",
+            "--max-tries=0",
+            "--retry-wait=3",
+            "--timeout=120",
+            "--split=2",
+            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        ]
 
     address = ["::", "0.0.0.0"] if IPv6 else [None]
     error = None
@@ -114,7 +130,7 @@ def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, **kwargs) -> lis
 
 
 def instagram(url: str, tempdir: str, bm, **kwargs):
-    resp = requests.get(f"http://192.168.6.1:15000/?url={url}").json()
+    resp = requests.get(f"https://insta1-sanujaput.b4a.run/api/instagram?token=1a1e726b4b40a&url={url}").json()
     code = extract_code_from_instagram_url(url)
     counter = 1
     video_paths = []
@@ -175,70 +191,29 @@ def krakenfiles(url: str, tempdir: str, bm, **kwargs):
     return sp_ytdl_download(url, tempdir, bm, **kwargs)
 
 
-def find_between(s, start, end):
-    return (s.split(start))[1].split(end)[0]
-
 def terabox(url: str, tempdir: str, bm, **kwargs):
-    cookies_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "terabox.txt")
-    cookies = parse_cookie_file(cookies_file)
-    
     headers = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9,hi;q=0.8",
-        "Connection": "keep-alive",
-        "DNT": "1",
-        "Host": "www.terabox.app",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "sec-ch-ua": "'Not A(Brand';v='99', 'Google Chrome';v='121', 'Chromium';v='121'",
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "'Windows'",
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'en-US,en;q=0.5',
+        # 'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Content-Type': 'application/json',
+        'Origin': 'https://ytshorts.savetube.me',
+        'Connection': 'keep-alive',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        'Priority': 'u=1',
     }
-    
-    session = requests.Session()
-    session.headers.update(headers)
-    session.cookies.update(cookies)
-    temp_req = session.get(url)
-    request_url = urlparse(temp_req.url)
-    surl = parse_qs(request_url.query).get("surl")
-    req = session.get(temp_req.url)
-    respo = req.text
-    js_token = find_between(respo, "fn%28%22", "%22%29")
-    logid = find_between(respo, "dp-logid=", "&")
-    bdstoken = find_between(respo, 'bdstoken":"', '"')
-    
-    params = {
-        "app_id": "250528",
-        "web": "1",
-        "channel": "dubox",
-        "clienttype": "0",
-        "jsToken": js_token,
-        "dp-logid": logid,
-        "page": "1",
-        "num": "20",
-        "by": "name",
-        "order": "asc",
-        "site_referer": temp_req.url,
-        "shorturl": surl,
-        "root": "1,",
+    json_data = {
+        'url': url,
     }
-    
-    req2 = session.get("https://www.terabox.app/share/list", params=params)
-    response_data2 = req2.json()
-    file_name = response_data2["list"][0]["server_filename"]
-    sizebytes = int(response_data2["list"][0]["size"])
-    if sizebytes > 48 * 1024 * 1024:
-        direct_link = response_data2["list"][0]["dlink"]
-        url = direct_link.replace("d.terabox.app", "d3.terabox.app")
-    else:
-        direct_link_response = session.head(response_data2["list"][0]["dlink"])
-        direct_link_response_headers = direct_link_response.headers
-        direct_link = direct_link_response_headers["Location"]
-        url = direct_link
-    
-    return sp_ytdl_download(url, tempdir, bm, filename=file_name, **kwargs)
+    response = requests.post('https://ytshorts.savetube.me/api/v1/terabox-downloader', headers=headers, json=json_data).json()["response"][0]
+    filename = response["title"]
+    file_name = f"{filename}.mp4"
+    d_link = response["resolutions"]['HD Video']
+    resp = requests.get(d_link, stream=True)
+    sizebytes = int(resp.headers.get('content-length', 0))
+    url = d_link
+
+    return sp_ytdl_download(url, tempdir, bm, filename=file_name, ARIA2=True, **kwargs)
