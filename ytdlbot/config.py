@@ -21,7 +21,7 @@ TOKEN = os.getenv("TOKEN", "1234")
 REDIS = os.getenv("REDIS", "redis")
 
 ENABLE_VIP = os.getenv("VIP", False)
-OWNER = os.getenv("OWNER", "BennyThink")
+OWNER = os.getenv("OWNER", "The_Addy")
 
 # limitation settings
 AUTHORIZED_USER: str = os.getenv("AUTHORIZED_USER", "")
@@ -39,12 +39,12 @@ MYSQL_PASS = os.getenv("MYSQL_PASS", "root")
 
 ARCHIVE_ID = os.getenv("ARCHIVE_ID")
 
-ENABLE_FFMPEG = os.getenv("ENABLE_FFMPEG", False)
+ENABLE_FFMPEG = os.getenv("ENABLE_FFMPEG", True)
 AUDIO_FORMAT = os.getenv("AUDIO_FORMAT")
 
-PLAYLIST_SUPPORT = os.getenv("PLAYLIST_SUPPORT", False)
-M3U8_SUPPORT = os.getenv("M3U8_SUPPORT", False)
-ENABLE_ARIA2 = os.getenv("ENABLE_ARIA2", False)
+PLAYLIST_SUPPORT = os.getenv("PLAYLIST_SUPPORT", True)
+M3U8_SUPPORT = os.getenv("M3U8_SUPPORT", True)
+ENABLE_ARIA2 = os.getenv("ENABLE_ARIA2", True)
 
 RCLONE_PATH = os.getenv("RCLONE")
 
