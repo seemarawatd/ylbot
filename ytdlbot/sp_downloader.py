@@ -196,7 +196,6 @@ def terabox(url: str, tempdir: str, bm, **kwargs):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'en-US,en;q=0.5',
-        # 'Accept-Encoding': 'gzip, deflate, br, zstd',
         'Content-Type': 'application/json',
         'Origin': 'https://ytshorts.savetube.me',
         'Connection': 'keep-alive',
@@ -208,12 +207,28 @@ def terabox(url: str, tempdir: str, bm, **kwargs):
     json_data = {
         'url': url,
     }
-    response = requests.post('https://ytshorts.savetube.me/api/v1/terabox-downloader', headers=headers, json=json_data).json()["response"][0]
-    filename = response["title"]
-    file_name = f"{filename}.mp4"
-    d_link = response["resolutions"]['HD Video']
-    resp = requests.get(d_link, stream=True)
-    sizebytes = int(resp.headers.get('content-length', 0))
-    url = d_link
+    try:
+        response = requests.post('https://ytshorts.savetube.me/api/v1/terabox-downloader', headers=headers, json=json_data)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        data = response.json()
+        
+        if "response" not in data or not data["response"]:
+            raise ValueError(f"Unexpected API response: {data}")
+        
+        file_info = data["response"][0]
+        filename = file_info["title"]
+        file_name = f"{filename}.mp4"
+        d_link = file_info["resolutions"]['HD Video']
+        
+        return sp_ytdl_download(d_link, tempdir, bm, filename=file_name, ARIA2=True, **kwargs)
+    
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error connecting to Terabox API: {str(e)}")
+    except json.JSONDecodeError as e:
+        raise Exception(f"Error parsing API response: {str(e)}. Response content: {response.text}")
+    except KeyError as e:
+        raise Exception(f"Unexpected response structure: {str(e)}. Response content: {data}")
+    except Exception as e:
+        raise Exception(f"Unexpected error in terabox function: {str(e)}")
 
     return sp_ytdl_download(url, tempdir, bm, filename=file_name, ARIA2=True, **kwargs)
