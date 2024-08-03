@@ -14,6 +14,7 @@ import logging
 import pathlib
 import re
 import traceback
+import random
 from urllib.parse import urlparse, parse_qs
 
 from pyrogram import types
@@ -41,10 +42,52 @@ from downloader import (
 from limit import Payment
 from utils import sizeof_fmt, parse_cookie_file, extract_code_from_instagram_url
 
+# List of proxies
+PROXIES = [
+    "45.127.248.127:5128:bnpfqirk:m2lma09uypy9",
+    "64.64.118.149:6732:bnpfqirk:m2lma09uypy9",
+    "157.52.253.244:6204:bnpfqirk:m2lma09uypy9",
+    "167.160.180.203:6754:bnpfqirk:m2lma09uypy9"
+]
+
+def get_random_proxy():
+    proxy = random.choice(PROXIES)
+    ip, port, username, password = proxy.split(':')
+    return {
+        'http': f'http://{username}:{password}@{ip}:{port}',
+        'https': f'http://{username}:{password}@{ip}:{port}'
+    }
+
+def get_terabox_domains():
+    return [
+        "terabox.com",
+        "nephobox.com",
+        "4funbox.com",
+        "mirrobox.com",
+        "momerybox.com",
+        "teraboxapp.com",
+        "1024tera.com",
+        "terabox.app",
+        "gibibox.com",
+        "goaibox.com",
+        "tibibox.com",
+        "freeterabox.com",
+        "teraboxlink.com",
+    ]
+
+def get_latest_terabox_url(url):
+    try:
+        response = requests.get(url, allow_redirects=True)
+        return response.url
+    except Exception as e:
+        logging.error(f"Error getting latest Terabox URL: {e}")
+        return url
 
 def sp_dl(url: str, tempdir: str, bm, **kwargs) -> list:
     """Specific link downloader"""
     domain = urlparse(url).hostname
+    terabox_domains = get_terabox_domains()
+
     if "youtube.com" in domain or "youtu.be" in domain:
         raise ValueError("ERROR: This is ytdl bot for Youtube links just send the link.")
     elif "www.instagram.com" in domain:
@@ -53,30 +96,17 @@ def sp_dl(url: str, tempdir: str, bm, **kwargs) -> list:
         return pixeldrain(url, tempdir, bm, **kwargs)
     elif "krakenfiles.com" in domain:
         return krakenfiles(url, tempdir, bm, **kwargs)
-    elif any(
-        x in domain
-        for x in [
-            "terabox.com",
-            "nephobox.com",
-            "4funbox.com",
-            "mirrobox.com",
-            "momerybox.com",
-            "teraboxapp.com",
-            "1024tera.com",
-            "terabox.app",
-            "gibibox.com",
-            "goaibox.com",
-            "tibibox.com",
-            "freeterabox.com",
-            "teraboxlink.com",
-        ]
-    ):
+    elif any(x in domain for x in terabox_domains):
         return terabox(url, tempdir, bm, **kwargs)
     else:
-        raise ValueError(f"Invalid URL: No specific link function found for {url}")
-
-    return []
-
+        # Try to get the latest Terabox URL
+        latest_url = get_latest_terabox_url(url)
+        latest_domain = urlparse(latest_url).hostname
+        if any(x in latest_domain for x in terabox_domains):
+            logging.info(f"Updated Terabox URL: {latest_url}")
+            return terabox(latest_url, tempdir, bm, **kwargs)
+        else:
+            raise ValueError(f"Invalid URL: No specific link function found for {url}")
 
 def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, ARIA2=None, **kwargs) -> list:
     payment = Payment()
@@ -118,7 +148,7 @@ def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, ARIA2=None, **kw
             video_paths = list(pathlib.Path(tempdir).glob("*"))
             break
         except FileTooBig as e:
-                raise e
+            raise e
         except Exception:
             error = traceback.format_exc()
             logging.error("Download failed for %s - %s", url)
@@ -127,7 +157,6 @@ def sp_ytdl_download(url: str, tempdir: str, bm, filename=None, ARIA2=None, **kw
         raise Exception(error)
 
     return video_paths
-
 
 def instagram(url: str, tempdir: str, bm, **kwargs):
     resp = requests.get(f"https://insta1-sanujaput.b4a.run/api/instagram?token=1a1e726b4b40a&url={url}").json()
@@ -155,7 +184,6 @@ def instagram(url: str, tempdir: str, bm, **kwargs):
 
     return video_paths
 
-
 def pixeldrain(url: str, tempdir: str, bm, **kwargs):
     user_page_url_regex = r"https://pixeldrain.com/u/(\w+)"
     match = re.match(user_page_url_regex, url)
@@ -164,7 +192,6 @@ def pixeldrain(url: str, tempdir: str, bm, **kwargs):
         return sp_ytdl_download(url, tempdir, bm, **kwargs)
     else:
         return url
-
 
 def krakenfiles(url: str, tempdir: str, bm, **kwargs):
     resp = requests.get(url)
@@ -190,7 +217,6 @@ def krakenfiles(url: str, tempdir: str, bm, **kwargs):
         url = json_data["url"]
     return sp_ytdl_download(url, tempdir, bm, **kwargs)
 
-
 def terabox(url: str, tempdir: str, bm, **kwargs):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -207,28 +233,24 @@ def terabox(url: str, tempdir: str, bm, **kwargs):
     json_data = {
         'url': url,
     }
-    try:
-        response = requests.post('https://ytshorts.savetube.me/api/v1/terabox-downloader', headers=headers, json=json_data)
-        response.raise_for_status()  # Raise an exception for bad status codes
-        data = response.json()
-        
-        if "response" not in data or not data["response"]:
-            raise ValueError(f"Unexpected API response: {data}")
-        
-        file_info = data["response"][0]
-        filename = file_info["title"]
-        file_name = f"{filename}.mp4"
-        d_link = file_info["resolutions"]['HD Video']
-        
-        return sp_ytdl_download(d_link, tempdir, bm, filename=file_name, ARIA2=True, **kwargs)
     
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"Error connecting to Terabox API: {str(e)}")
-    except json.JSONDecodeError as e:
-        raise Exception(f"Error parsing API response: {str(e)}. Response content: {response.text}")
-    except KeyError as e:
-        raise Exception(f"Unexpected response structure: {str(e)}. Response content: {data}")
+    # Use a random proxy for the API request
+    proxy = get_random_proxy()
+    try:
+        response = requests.post('https://ytshorts.savetube.me/api/v1/terabox-downloader', 
+                                 headers=headers, 
+                                 json=json_data, 
+                                 proxies=proxy,
+                                 timeout=30).json()["response"][0]
     except Exception as e:
-        raise Exception(f"Unexpected error in terabox function: {str(e)}")
+        logging.error(f"Error fetching Terabox download link: {e}")
+        raise ValueError(f"Failed to fetch Terabox download link: {e}")
+
+    filename = response["title"]
+    file_name = f"{filename}.mp4"
+    d_link = response["resolutions"]['HD Video']
+    resp = requests.get(d_link, stream=True)
+    sizebytes = int(resp.headers.get('content-length', 0))
+    url = d_link
 
     return sp_ytdl_download(url, tempdir, bm, filename=file_name, ARIA2=True, **kwargs)
